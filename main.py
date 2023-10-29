@@ -9,8 +9,8 @@ def connect_to_csgo_empire_websocket():
     # Read the connection string from the environment variable
     # Read the connection string, database name, and collection name from environment variables
     connection_string = os.environ.get('MONGODB_CONNECTION_STRING')
-    database_name = os.environ.get('MONGODB_DATABASE_NAME')
-    collection_name = os.environ.get('MONGODB_COLLECTION_NAME')
+    database_name = os.environ.get('MONGODB_DATABASE_NAME') or 'logs'
+    collection_name = os.environ.get('MONGODB_COLLECTION_NAME') or 'raw_log'
 
     # Connect to the MongoDB cluster
     client = pymongo.MongoClient(connection_string)
