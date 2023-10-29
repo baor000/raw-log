@@ -29,11 +29,11 @@ def connect_to_csgo_empire_websocket():
         send_message()
 
     def on_message(ws, message):
-        print('WebSocket message received:', message)
+        # print('WebSocket message received:', message)
         parts = message.split(',')
         if len(parts) > 1:
             data = parts[1:]
-            print('Processed data:', data)
+            # print('Processed data:', data)
 
             list_data = json.loads(','.join(data))
 
@@ -44,7 +44,8 @@ def connect_to_csgo_empire_websocket():
             }
 
             # Insert the data into the collection
-            collection.insert_one(data_dict)
+            result = collection.insert_one(data_dict)
+            print(result)
 
 
     def on_close(ws, close_status_code, close_msg):
