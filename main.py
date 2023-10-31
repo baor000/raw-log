@@ -3,21 +3,59 @@ import threading
 import pymongo
 import json
 import os
+import psycopg2
 
 def connect_to_csgo_empire_websocket():
 
     # Read the connection string from the environment variable
     # Read the connection string, database name, and collection name from environment variables
-    connection_string = os.environ.get('MONGODB_CONNECTION_STRING')
-    database_name = os.environ.get('MONGODB_DATABASE_NAME') or 'logs'
-    collection_name = os.environ.get('MONGODB_COLLECTION_NAME') or 'raw-log'
+    postgres_uri = os.environ.get('POSTGRES_URI')
+    # connection_string = os.environ.get('MONGODB_CONNECTION_STRING')
+    # database_name = os.environ.get('MONGODB_DATABASE_NAME') or 'logs'
+    # collection_name = os.environ.get('MONGODB_COLLECTION_NAME') or 'raw-log'
 
     # Connect to the MongoDB cluster
-    client = pymongo.MongoClient(connection_string)
+    # client = pymongo.MongoClient(connection_string)
 
     # Access the database and collection
-    db = client[database_name]
-    collection = db[collection_name]
+    # db = client[database_name]
+    # collection = db[collection_name]
+
+    conn = psycopg2.connect()
+    cur = conn.cursor()
+    
+    def handle_data(data):
+        if data['type'] == "match_created":
+            data = data['data']
+            list_key = ['id','game','status','format']
+            sql = f"""INSERT INTO match_created({','.join(list_key)}) VALUES({data[i] for i in list_key}) RETURNING id;"""
+        if data['type'] == "market_created":
+            data = data['data']
+            list_key = ['id','match_id']
+            sql = f"""INSERT INTO match_created({','.join(list_key)}) VALUES({data[i] for i in list_key}) RETURNING id;"""
+        # this handle match detail infomation
+        # if data['type'] == "match_updated":
+        #     data = data['data']
+        #     list_key = ['id','match_id']
+        #     sql = f"""INSERT INTO match_created({','.join(list_key)}) VALUES({data[i] for i in list_key}) RETURNING id;"""
+        # this handle match status
+        # if data['type'] == "market_updated":
+        #     data = data['data']
+        #     list_key = ['id','match_id']
+        #     sql = f"""INSERT INTO match_created({','.join(list_key)}) VALUES({data[i] for i in list_key}) RETURNING id;"""
+        if data['type'] == "selection_updated":
+            # this will be a list
+            data = data['data']
+            list_key = ['id','match_id','market_id','odds']
+            sql = f"""INSERT INTO match_created({','.join(list_key)}) VALUES{','.join(str(d[i] for i in list_key) for d in data)} RETURNING id;"""
+        
+        print(sql)
+        cur.execute(sql)
+        result = cur.fetchone()[0]
+        conn.commit()
+        return result
+        
+
     def on_open(ws):
         print('WebSocket connection opened')
         ws.send('40/matchbetting,')
@@ -43,15 +81,15 @@ def connect_to_csgo_empire_websocket():
                 "data": list_data[1]
             }
 
-            # Insert the data into the collection
-            result = collection.insert_one(data_dict)
-            print(result)
+            print(handle_data(data_dict))
 
 
     def on_close(ws, close_status_code, close_msg):
+        cur.close()
         print('WebSocket connection closed with status code:', close_status_code, 'and message:', close_msg)
 
     def on_error(ws, error):
+        cur.close()
         print('WebSocket error occurred:', error)
 
     headers = {
