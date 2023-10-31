@@ -1,6 +1,6 @@
 import websocket
 import threading
-import pymongo
+# import pymongo
 import json
 import os
 import psycopg2
@@ -21,18 +21,19 @@ def connect_to_csgo_empire_websocket():
     # db = client[database_name]
     # collection = db[collection_name]
 
-    conn = psycopg2.connect()
+    conn = psycopg2.connect(postgres_uri,sslmode='require')
     cur = conn.cursor()
     
     def handle_data(data):
-        if data['type'] == "match_created":
-            data = data['data']
-            list_key = ['id','game','status','format']
-            sql = f"""INSERT INTO match_created({','.join(list_key)}) VALUES({data[i] for i in list_key}) RETURNING id;"""
-        if data['type'] == "market_created":
-            data = data['data']
-            list_key = ['id','match_id']
-            sql = f"""INSERT INTO match_created({','.join(list_key)}) VALUES({data[i] for i in list_key}) RETURNING id;"""
+        sql = ""
+        # if data['type'] == "match_created":
+        #     data = data['data']
+        #     list_key = ['id','game','status','format']
+        #     sql = f"""INSERT INTO match_created({','.join(list_key)}) VALUES({str(data[i]) for i in list_key}) RETURNING id;"""
+        # if data['type'] == "market_created":
+        #     data = data['data']
+        #     list_key = ['id','match_id']
+        #     sql = f"""INSERT INTO market_created({','.join(list_key)}) VALUES({data[i] for i in list_key}) RETURNING id;"""
         # this handle match detail infomation
         # if data['type'] == "match_updated":
         #     data = data['data']
@@ -46,15 +47,17 @@ def connect_to_csgo_empire_websocket():
         if data['type'] == "selection_updated":
             # this will be a list
             data = data['data']
+            
             list_key = ['id','match_id','market_id','odds']
-            sql = f"""INSERT INTO match_created({','.join(list_key)}) VALUES{','.join(str(d[i] for i in list_key) for d in data)} RETURNING id;"""
+            r = ','.join(['(' + ','.join([str(d[i]) for i in list_key]) + ')' for d in data])
+            sql = f"""INSERT INTO selection_updated({','.join(list_key)}) VALUES{r} RETURNING 1;"""
         
-        print(sql)
-        cur.execute(sql)
-        result = cur.fetchone()[0]
-        conn.commit()
-        return result
-        
+        if sql:
+            cur.execute(sql)
+            result = cur.fetchone()[0]
+            conn.commit()
+            return result
+        return True
 
     def on_open(ws):
         print('WebSocket connection opened')
@@ -80,8 +83,8 @@ def connect_to_csgo_empire_websocket():
                 "type": list_data[0],
                 "data": list_data[1]
             }
-
-            print(handle_data(data_dict))
+            handle_data(data_dict)
+            # print(handle_data(data_dict))
 
 
     def on_close(ws, close_status_code, close_msg):
@@ -89,7 +92,6 @@ def connect_to_csgo_empire_websocket():
         print('WebSocket connection closed with status code:', close_status_code, 'and message:', close_msg)
 
     def on_error(ws, error):
-        cur.close()
         print('WebSocket error occurred:', error)
 
     headers = {
