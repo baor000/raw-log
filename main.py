@@ -47,11 +47,40 @@ def connect_to_csgo_empire_websocket():
         if data['type'] == "selection_updated":
             # this will be a list
             data = data['data']
-            
+            # if 'odds' not in data[0]:
+            #     return
             list_key = ['id','match_id','market_id','odds']
-            r = ','.join(['(' + ','.join([str(d[i]) for i in list_key]) + ')' for d in data])
-            sql = f"""INSERT INTO selection_updated({','.join(list_key)}) VALUES{r} RETURNING 1;"""
-        
+
+            grouped_data = {}
+
+           # Assuming your list of dictionaries is named `data`
+            grouped_data = {}
+
+            for d in data:
+                if 'odds' not in d:
+                    continue
+                match_id = d['match_id']
+                market_id = d['market_id']
+                if (match_id, market_id) not in grouped_data:
+                    grouped_data[(match_id, market_id)] = []
+                grouped_data[(match_id, market_id)].append(d)
+            query = []
+            # print(grouped_data)
+            for key, value in grouped_data.items():
+                if len(value) != 2 or all([i['odds'] > 2 for i in value]):
+                    continue
+                else:
+                    for ind,val in enumerate(value):
+                        if ind % 2:
+                            values = '(' + ','.join([str(val[i]) for i in list_key]) + ',1)'
+                        else:
+                            values = '(' + ','.join([str(val[i]) for i in list_key]) + ',0)'
+                        query.append(values)
+
+            r = ','.join(query)
+            if r:
+                sql = f"""INSERT INTO selection_updated({','.join(list_key)+',site'}) VALUES{r} RETURNING 1;"""
+
         if sql:
             cur.execute(sql)
             result = cur.fetchone()[0]
